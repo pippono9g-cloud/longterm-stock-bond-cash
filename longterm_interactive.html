@@ -256,7 +256,7 @@
     {k:"15Y",yrs:15},{k:"10Y",yrs:10},{k:"5Y",yrs:5}
   ];
   var state={fi:0,rebase:true,pct:true,dom:[START,END],gset:{}};   // default: % return, rebased to window
-  GROUPS.forEach(function(g){state.gset[g.id]=false;});           // starts empty - pick the categories you want to see
+  GROUPS.forEach(function(g){state.gset[g.id]=true;});            // default: show every event category
   var MINSPAN=1.0;   // tightest zoom = a single year
 
   var cbox=document.getElementById("controls");
@@ -346,7 +346,11 @@
   var grpClear=mkBtn("Clear");grpClear.classList.add("grp-all");
   grpAll.addEventListener("click",function(){GROUPS.forEach(function(g){state.gset[g.id]=true;});syncGrpBtns();render();updateExplorer();});
   grpClear.addEventListener("click",function(){GROUPS.forEach(function(g){state.gset[g.id]=false;});search.value="";syncGrpBtns();render();updateExplorer();});
-  function syncGrpBtns(){grpBtns.forEach(function(b,i){b.setAttribute("aria-pressed",String(state.gset[GROUPS[i].id]));});}
+  function syncGrpBtns(){
+    grpBtns.forEach(function(b,i){b.setAttribute("aria-pressed",String(state.gset[GROUPS[i].id]));});
+    grpAll.setAttribute("aria-pressed",String(GROUPS.every(function(g){return state.gset[g.id];})));
+    grpClear.setAttribute("aria-pressed",String(GROUPS.every(function(g){return !state.gset[g.id];})));
+  }
   syncGrpBtns();
   var search=document.createElement("input");search.type="search";search.placeholder="Search all history — Lehman, COVID, inflation…";search.setAttribute("aria-label","Search events across all history");
   var level=document.createElement("select");level.setAttribute("aria-label","Event detail level");level.innerHTML='<option value="all">All matching events</option><option value="major">Major events only</option>';

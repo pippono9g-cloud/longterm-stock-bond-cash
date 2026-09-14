@@ -80,8 +80,9 @@
   [data-event][aria-pressed="true"]:focus-visible .event-ring{stroke-dasharray:none}
   [data-event][aria-pressed="true"] .evt-label{fill:var(--scb-d)}
   .detail-meta,.detail-tags{font-size:12px;color:var(--ink-mute)}.detail-tags{color:var(--scb)}
-  .event-drawdown{margin:14px 0 4px;padding:13px 14px;border:1px solid var(--hair);border-radius:8px;background:#fff}
-  .event-drawdown span,.event-drawdown small{display:block;color:var(--ink-mute);font-size:11px}.event-drawdown strong{display:block;margin:2px 0;color:var(--shock);font-size:24px;line-height:1.2}
+  .event-performance{margin:14px 0 4px;padding:13px 14px;border:1px solid var(--hair);border-radius:8px;background:#fff}
+  .event-performance>span,.event-performance>small{display:block;color:var(--ink-mute);font-size:11px}.perf-grid{display:grid;grid-template-columns:repeat(4,minmax(70px,1fr));gap:8px;margin:9px 0}
+  .perf-item{padding:8px;border-radius:6px;background:var(--soft);text-align:center}.perf-item span{display:block;color:var(--ink-mute);font-size:10px}.perf-item strong{display:block;margin-top:2px;font-size:18px;line-height:1.2}.perf-item .pos{color:#16734a}.perf-item .neg{color:var(--shock)}
   .event-detail h3{font-size:13px;margin:20px 0 6px;color:var(--scb)}.event-detail section{line-height:1.8}.event-detail section p{margin:0 0 12px}
   .detail-sources p{margin:6px 0;font-size:12px}.detail-sources small{display:block;color:var(--ink-mute)}.detail-sources a{color:var(--scb)}
   .detail-method{font-size:11px;color:var(--ink-mute);margin-top:18px}.detail-method summary{cursor:pointer;padding:8px 0}
@@ -370,16 +371,12 @@
   function syncSelectedMarkers(){
     svg.querySelectorAll("[data-event]").forEach(function(el){el.setAttribute("aria-pressed",String(!!selectedEvent && el.getAttribute("data-event")===selectedEvent[6].id));});
   }
-  function eventDrawdown(e){
-    var windowStart=Math.max(START,e[0]-2),windowEnd=Math.min(END,e[0]+2);
-    var i0=idxAt(windowStart),i1=idxAt(windowEnd),peak=M[i0][1],peakI=i0;
-    var worst=0,worstPeakI=i0,troughI=i0;
-    for(var i=i0+1;i<=i1;i++){
-      if(M[i][1]>peak){peak=M[i][1];peakI=i;}
-      var dd=M[i][1]/peak-1;
-      if(dd<worst){worst=dd;worstPeakI=peakI;troughI=i;}
-    }
-    return {pct:worst*100,peak:times[worstPeakI],trough:times[troughI],start:times[i0],end:times[i1]};
+  function eventPerformance(e){
+    var i0=idxAt(e[0]);
+    return {base:times[i0],periods:[1,3,6,12].map(function(months){
+      var i=i0+months;
+      return {months:months,pct:i<M.length?(M[i][1]/M[i0][1]-1)*100:null,end:i<M.length?times[i]:null};
+    })};
   }
   function moveChartToEvent(e){
     var t=e[0];
@@ -393,14 +390,16 @@
     selectedEvent=e;
     var groups=e[6].groups.map(function(id){return GROUPS.find(function(g){return g.id===id;}).label;});
     var kind={shock:"เหตุการณ์กดดันตลาด",policy:"นโยบาย / การเปลี่ยนแปลงเชิงสถาบัน",milestone:"จุดเปลี่ยนตลาดเมื่อมองย้อนหลัง"}[e[3]];
-    var panel=document.getElementById("event-detail"), meta=e[6],dd=eventDrawdown(e);
+    var panel=document.getElementById("event-detail"), meta=e[6],perf=eventPerformance(e);
     var body='<h2>'+escapeText(plain(e[1]))+'</h2><p class="detail-meta">'+escapeText(e[2])+' · '+escapeText(kind)+'</p><p class="detail-tags">'+escapeText(groups.join(" · "))+'</p>';
-    body+='<div class="event-drawdown"><span>S&amp;P 500 maximum drawdown in event window</span><strong>'+escapeText((dd.pct<0?'−':'')+Math.abs(dd.pct).toFixed(1)+'%')+'</strong><small>Peak '+escapeText(fmtDate(dd.peak))+' → trough '+escapeText(fmtDate(dd.trough))+' · Window '+escapeText(fmtDate(dd.start))+' – '+escapeText(fmtDate(dd.end))+'</small></div>';
+    body+='<div class="event-performance"><span>S&amp;P 500 performance after event</span><div class="perf-grid">';
+    perf.periods.forEach(function(p){var value=p.pct===null?'—':(p.pct>=0?'+':'−')+Math.abs(p.pct).toFixed(1)+'%',cls=p.pct===null?'':p.pct>=0?'pos':'neg';body+='<div class="perf-item"><span>'+p.months+'M</span><strong class="'+cls+'">'+escapeText(value)+'</strong></div>';});
+    body+='</div><small>From '+escapeText(fmtDate(perf.base))+' month-end · Price return, excluding dividends</small></div>';
     body+='<section lang="th"><h3>สรุปสถานการณ์</h3><p>'+escapeText(meta.summaryTh)+'</p>';
     if(meta.contextTh)body+='<p>'+escapeText(meta.contextTh)+'</p>';
     body+='</section>';
     if(meta.sources.length){body+='<div class="detail-sources" lang="th"><h3>แหล่งอ้างอิงประกอบ</h3>';meta.sources.forEach(function(src){body+='<p><a href="'+escapeText(src.url)+'" target="_blank" rel="noopener noreferrer">'+escapeText(src.title)+'</a><small>'+escapeText(src.scope)+'</small></p>';});body+='</div>';}
-    body+='<details class="detail-method" lang="th"><summary>เกี่ยวกับข้อมูล</summary><p>Maximum drawdown คำนวณจากราคา S&amp;P 500 รายเดือน โดยหาเปอร์เซ็นต์ลดลงมากที่สุดจากจุดสูงสุดถึงจุดต่ำสุดภายใน Event window ซึ่งเริ่ม 2 ปีก่อนและสิ้นสุด 2 ปีหลังวันที่ Event (หรือเท่าที่ข้อมูลมี) ตัวเลขไม่รวมเงินปันผล สรุปภาษาไทยเรียบเรียงจากรายการเหตุการณ์เดิม แหล่งอ้างอิงที่แสดงรองรับเฉพาะประเด็นที่ระบุ ยังไม่ได้ยืนยันรายละเอียดและตัวเลขทุกรายการ และวันที่เหตุการณ์บางรายการเป็นค่าประมาณ</p></details>';
+    body+='<details class="detail-method" lang="th"><summary>เกี่ยวกับข้อมูล</summary><p>Performance คำนวณจากการเปลี่ยนแปลงของราคา S&amp;P 500 ณ สิ้นเดือนที่ใกล้วันที่ Event ที่สุด ไปยังสิ้นเดือนหลังจากนั้น 1, 3, 6 และ 12 เดือน ตัวเลขเป็น price return และไม่รวมเงินปันผล จึงใช้เพื่อดูการเคลื่อนไหวของตลาดหลังเหตุการณ์ ไม่ได้ยืนยันว่าเหตุการณ์นั้นเป็นสาเหตุ สรุปภาษาไทยเรียบเรียงจากรายการเหตุการณ์เดิม แหล่งอ้างอิงที่แสดงรองรับเฉพาะประเด็นที่ระบุ และวันที่เหตุการณ์บางรายการเป็นค่าประมาณ</p></details>';
     body+='<button type="button" class="tf-btn focus-period">Focus chart on this period</button><div class="related-events" lang="th"><h3>ลำดับเหตุการณ์ที่เกี่ยวข้อง</h3></div>';
     panel.innerHTML=body;
     panel.querySelector(".focus-period").onclick=function(){var t=e[0];state.dom=[Math.max(START,t-2),Math.min(END,t+2)];syncFrButtons();render();};

@@ -83,6 +83,8 @@
   .event-performance{margin:14px 0 4px;padding:13px 14px;border:1px solid var(--hair);border-radius:8px;background:#fff}
   .event-performance>span,.event-performance>small{display:block;color:var(--ink-mute);font-size:11px}.perf-grid{display:grid;grid-template-columns:repeat(4,minmax(70px,1fr));gap:8px;margin:9px 0}
   .perf-item{padding:8px;border-radius:6px;background:var(--soft);text-align:center}.perf-item span{display:block;color:var(--ink-mute);font-size:10px}.perf-item strong{display:block;margin-top:2px;font-size:18px;line-height:1.2}.perf-item .pos{color:#16734a}.perf-item .neg{color:var(--shock)}
+  .market-response{margin-top:12px;padding-top:12px;border-top:1px solid var(--hair)}.market-response>span{display:block;color:var(--ink-mute);font-size:11px}.response-main{display:flex;align-items:baseline;gap:8px;margin:4px 0}.response-main strong{font-size:22px;color:var(--shock)}.response-main b{font-size:13px}
+  .response-timeline{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:9px 0}.response-step{border-top:3px solid var(--hair);padding-top:5px;font-size:10px;color:var(--ink-mute)}.response-step b{display:block;color:var(--ink);font-size:11px}.response-note{margin:4px 0 0;font-size:12px}.response-ok{color:#16734a}.response-wait{color:var(--shock)}
   .event-detail h3{font-size:13px;margin:20px 0 6px;color:var(--scb)}.event-detail section{line-height:1.8}.event-detail section p{margin:0 0 12px}
   .detail-sources p{margin:6px 0;font-size:12px}.detail-sources small{display:block;color:var(--ink-mute)}.detail-sources a{color:var(--scb)}
   .detail-method{font-size:11px;color:var(--ink-mute);margin-top:18px}.detail-method summary{cursor:pointer;padding:8px 0}
@@ -240,7 +242,7 @@
   function cagr(v0,v1,yrs){return (Math.pow(v1/v0,1/yrs)-1)*100;}
   function dispG(v){return state.pct?fmtPct(v/BASE):fmtUSD(v);}
   var MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-  function fmtDate(t){var y=Math.floor(t+1e-6);var m=Math.round((t-y)*12);if(m>11){m=0;y++;}return MONTHS[m]+" "+y;}
+  function fmtDate(t){var y=Math.floor(t+1e-6);var m=Math.floor((t-y)*12+1e-4);if(m>11){m=0;y++;}return MONTHS[m]+" "+y;}
 
   /* ============ CHART ======================================== */
   var svg=document.getElementById("chart");
@@ -372,10 +374,14 @@
     svg.querySelectorAll("[data-event]").forEach(function(el){el.setAttribute("aria-pressed",String(!!selectedEvent && el.getAttribute("data-event")===selectedEvent[6].id));});
   }
   function eventPerformance(e){
-    var i0=idxAt(e[0]);
-    return {base:times[i0],periods:[1,3,6,12].map(function(months){
-      var i=i0+months;
-      return {months:months,pct:i<M.length?(M[i][1]/M[i0][1]-1)*100:null,end:i<M.length?times[i]:null};
+    var eventI=idxAt(e[0]),baseI=Math.max(0,eventI-1),base=M[baseI][1],endI=Math.min(M.length-1,baseI+12);
+    var lowI=eventI;
+    for(var i=eventI+1;i<=endI;i++)if(M[i][1]<M[lowI][1])lowI=i;
+    var lowPct=(M[lowI][1]/base-1)*100,recoveryI=null;
+    if(lowPct<0)for(var j=lowI+1;j<=endI;j++)if(M[j][1]>=base){recoveryI=j;break;}
+    return {base:times[baseI],event:times[eventI],available:endI-baseI,lowPct:lowPct,monthsToLow:lowI-eventI,low:times[lowI],recovery:recoveryI===null?null:times[recoveryI],monthsToRecovery:recoveryI===null?null:recoveryI-eventI,monthsLowToRecovery:recoveryI===null?null:recoveryI-lowI,periods:[1,3,6,12].map(function(months){
+      var k=baseI+months;
+      return {months:months,pct:k<M.length?(M[k][1]/base-1)*100:null,end:k<M.length?times[k]:null};
     })};
   }
   function moveChartToEvent(e){
@@ -394,12 +400,23 @@
     var body='<h2>'+escapeText(plain(e[1]))+'</h2><p class="detail-meta">'+escapeText(e[2])+' · '+escapeText(kind)+'</p><p class="detail-tags">'+escapeText(groups.join(" · "))+'</p>';
     body+='<div class="event-performance"><span>S&amp;P 500 performance after event</span><div class="perf-grid">';
     perf.periods.forEach(function(p){var value=p.pct===null?'—':(p.pct>=0?'+':'−')+Math.abs(p.pct).toFixed(1)+'%',cls=p.pct===null?'':p.pct>=0?'pos':'neg';body+='<div class="perf-item"><span>'+p.months+'M</span><strong class="'+cls+'">'+escapeText(value)+'</strong></div>';});
-    body+='</div><small>From '+escapeText(fmtDate(perf.base))+' month-end · Price return, excluding dividends</small></div>';
+    body+='</div><small>Baseline: '+escapeText(fmtDate(perf.base))+' month-end, immediately before the event · Price return, excluding dividends</small>';
+    body+='<div class="market-response"><span>Market response timeline · 12-month follow-up</span>';
+    if(perf.lowPct>=0){
+      body+='<p class="response-note response-ok"><b>No month-end decline below the pre-event level</b> during the available '+perf.available+'-month follow-up.</p>';
+    }else{
+      var lowWhen=perf.monthsToLow===0?'within the event month':'after '+perf.monthsToLow+' month'+(perf.monthsToLow===1?'':'s');
+      body+='<div class="response-main"><strong>−'+Math.abs(perf.lowPct).toFixed(1)+'%</strong><b>lowest point '+lowWhen+'</b></div>';
+      body+='<div class="response-timeline"><div class="response-step"><b>Event</b>'+escapeText(fmtDate(perf.event))+'</div><div class="response-step"><b>Lowest point</b>'+escapeText(fmtDate(perf.low))+'</div><div class="response-step"><b>Recovery</b>'+(perf.recovery===null?'Not within window':escapeText(fmtDate(perf.recovery)))+'</div></div>';
+      if(perf.recovery===null)body+='<p class="response-note response-wait"><b>Not back to the pre-event level within '+perf.available+' month'+(perf.available===1?'':'s')+'.</b></p>';
+      else body+='<p class="response-note response-ok"><b>Back to the pre-event level in '+perf.monthsToRecovery+' month'+(perf.monthsToRecovery===1?'':'s')+' from the event</b> · '+perf.monthsLowToRecovery+' month'+(perf.monthsLowToRecovery===1?'':'s')+' from the lowest point.</p>';
+    }
+    body+='</div></div>';
     body+='<section lang="th"><h3>สรุปสถานการณ์</h3><p>'+escapeText(meta.summaryTh)+'</p>';
     if(meta.contextTh)body+='<p>'+escapeText(meta.contextTh)+'</p>';
     body+='</section>';
     if(meta.sources.length){body+='<div class="detail-sources" lang="th"><h3>แหล่งอ้างอิงประกอบ</h3>';meta.sources.forEach(function(src){body+='<p><a href="'+escapeText(src.url)+'" target="_blank" rel="noopener noreferrer">'+escapeText(src.title)+'</a><small>'+escapeText(src.scope)+'</small></p>';});body+='</div>';}
-    body+='<details class="detail-method" lang="th"><summary>เกี่ยวกับข้อมูล</summary><p>Performance คำนวณจากการเปลี่ยนแปลงของราคา S&amp;P 500 ณ สิ้นเดือนที่ใกล้วันที่ Event ที่สุด ไปยังสิ้นเดือนหลังจากนั้น 1, 3, 6 และ 12 เดือน ตัวเลขเป็น price return และไม่รวมเงินปันผล จึงใช้เพื่อดูการเคลื่อนไหวของตลาดหลังเหตุการณ์ ไม่ได้ยืนยันว่าเหตุการณ์นั้นเป็นสาเหตุ สรุปภาษาไทยเรียบเรียงจากรายการเหตุการณ์เดิม แหล่งอ้างอิงที่แสดงรองรับเฉพาะประเด็นที่ระบุ และวันที่เหตุการณ์บางรายการเป็นค่าประมาณ</p></details>';
+    body+='<details class="detail-method" lang="th"><summary>เกี่ยวกับข้อมูล</summary><p>ใช้ราคา S&amp;P 500 ณ สิ้นเดือนก่อน Event เป็นระดับอ้างอิง แล้วคำนวณ price return ที่ 1, 3, 6 และ 12 เดือน พร้อมติดตามจุดต่ำสุดและเดือนแรกหลังจุดต่ำสุดที่ราคากลับถึงระดับอ้างอิงภายใน 12 เดือน ตัวเลขไม่รวมเงินปันผลและใช้เพื่ออธิบายเส้นทางตลาดหลังเหตุการณ์ ไม่ได้ยืนยันว่าเหตุการณ์นั้นเป็นสาเหตุ หากข้อมูลหลัง Event ยังไม่ครบ ระบบจะแสดงเฉพาะช่วงที่มีข้อมูล วันที่เหตุการณ์บางรายการเป็นค่าประมาณ</p></details>';
     body+='<button type="button" class="tf-btn focus-period">Focus chart on this period</button><div class="related-events" lang="th"><h3>ลำดับเหตุการณ์ที่เกี่ยวข้อง</h3></div>';
     panel.innerHTML=body;
     panel.querySelector(".focus-period").onclick=function(){var t=e[0];state.dom=[Math.max(START,t-2),Math.min(END,t+2)];syncFrButtons();render();};

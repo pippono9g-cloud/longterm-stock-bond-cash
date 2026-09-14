@@ -1,0 +1,357 @@
+<title>Stocks, Bonds & Cash Since 1957</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800;900&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+  :root{
+    --ground:#FBFAF6;
+    --panel:#FFFFFF;
+    --ink:#0B1C2E;
+    --ink-soft:#4A5A6A;
+    --ink-mute:#8A97A3;
+    --grid:#E6E1D4;
+    --hair:#D8D2C2;
+    --eq:#1F4E8C;
+    --eq-fill:#1F4E8C;
+    --bond:#C07C1E;
+    --cash:#6B7A88;
+    --shock:#B23B2E;
+    --policy:#1F4E8C;
+    --milestone:#2E7D6B;
+    --halo:#FFFFFF;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0C1420; --panel:#111C2A; --ink:#EEF2F6; --ink-soft:#A9B6C2; --ink-mute:#6E7C89;
+      --grid:#1E2C3B; --hair:#263547; --eq:#5FA0DC; --eq-fill:#5FA0DC; --bond:#E0A44C; --cash:#9AAAB8;
+      --shock:#E1685A; --policy:#5FA0DC; --milestone:#54B79F; --halo:#111C2A;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0C1420; --panel:#111C2A; --ink:#EEF2F6; --ink-soft:#A9B6C2; --ink-mute:#6E7C89;
+    --grid:#1E2C3B; --hair:#263547; --eq:#5FA0DC; --eq-fill:#5FA0DC; --bond:#E0A44C; --cash:#9AAAB8;
+    --shock:#E1685A; --policy:#5FA0DC; --milestone:#54B79F; --halo:#111C2A;
+  }
+  *{box-sizing:border-box}
+  body{
+    background:var(--ground); color:var(--ink);
+    font-family:"Libre Franklin",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    -webkit-font-smoothing:antialiased; line-height:1.45;
+  }
+  .wrap{max-width:1500px;margin:0 auto;padding:30px 26px 40px}
+  .card{
+    background:var(--panel); border:1px solid var(--hair); border-radius:6px;
+    padding:34px 40px 30px;
+    box-shadow:0 1px 0 rgba(11,28,46,.04),0 14px 40px -22px rgba(11,28,46,.28);
+  }
+  .eyebrow{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-mute);margin:0 0 10px}
+  h1{font-size:clamp(30px,4.2vw,46px);font-weight:900;letter-spacing:-.02em;margin:0 0 6px;text-wrap:balance}
+  .sub{font-size:clamp(15px,1.6vw,19px);font-weight:600;color:var(--eq);margin:0 0 22px}
+  .stats{display:flex;flex-wrap:wrap;gap:14px;margin:0 0 6px}
+  .stat{border:1px solid var(--hair);border-radius:5px;padding:12px 16px 11px;min-width:186px;background:var(--ground)}
+  .stat .k{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-mute);display:flex;align-items:center;gap:7px}
+  .stat .k::before{content:"";width:12px;height:3px;border-radius:2px;background:var(--c,var(--ink))}
+  .stat.eq{--c:var(--eq)} .stat.bond{--c:var(--bond)} .stat.cash{--c:var(--cash)}
+  .stat .v{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:23px;font-weight:600;letter-spacing:-.01em;margin-top:3px;font-variant-numeric:tabular-nums}
+  .stat .n{font-size:12px;color:var(--ink-soft);font-weight:500}
+  figure{margin:20px 0 0}
+  svg{display:block;width:100%;height:auto;overflow:visible}
+  .chart-scroll{overflow-x:auto}
+  .foot{margin:20px 0 0;font-size:11.5px;line-height:1.6;color:var(--ink-mute);border-top:1px solid var(--hair);padding-top:12px}
+  .foot strong{color:var(--ink-soft);font-weight:600}
+  text{font-family:"Libre Franklin",sans-serif}
+  .ax{fill:var(--ink-mute);font-size:13px;font-weight:500}
+  .ax-strong{fill:var(--ink-soft);font-size:13px;font-weight:600}
+  .gridline{stroke:var(--grid);stroke-width:1}
+  .baseline{stroke:var(--ink-soft);stroke-width:1.5}
+  .evt-label{fill:var(--ink);font-size:12px;font-weight:600}
+  .evt-date{fill:var(--ink-mute);font-size:11px;font-weight:500}
+  .series-end{font-family:"IBM Plex Mono",monospace;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums}
+</style>
+
+<div class="wrap">
+  <div class="card">
+    <p class="eyebrow">1957 &ndash; 2026 &nbsp;&bull;&nbsp; U.S. dollars &nbsp;&bull;&nbsp; growth of a single $10,000 investment &nbsp;&bull;&nbsp; ratio scale</p>
+    <h1>Stocks, bonds &amp; cash over the long run</h1>
+    <p class="sub">$10,000 invested when the S&amp;P 500 began in 1957, held through every crisis since</p>
+
+    <div class="stats" id="stats"></div>
+
+    <figure>
+      <div class="chart-scroll">
+        <svg id="chart" viewBox="0 0 1500 940" role="img"
+             aria-label="Logarithmic line chart comparing the growth of $10,000 invested in U.S. stocks, bonds and cash from 1957 to 2026, with major market events annotated."></svg>
+      </div>
+    </figure>
+
+    <p class="foot" id="foot"></p>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ============ DATA =================================================
+  // S&P 500 PRICE index anchor levels (index points; price return only)
+  var spAnchors=[
+    [1957.99,39.99],[1959.99,59.89],[1961.99,71.55],[1962.50,52.32],[1962.99,63.10],
+    [1965.99,92.43],[1966.80,73.20],[1967.99,96.47],[1968.99,103.86],[1970.40,69.29],
+    [1971.99,102.09],[1972.99,118.05],[1974.02,96.11],[1974.80,62.28],[1974.99,68.56],
+    [1976.99,107.46],[1978.99,96.11],[1980.99,135.76],[1982.60,102.42],
+    [1982.99,140.64],[1985.99,211.28],[1987.63,336.77],[1987.80,224.84],[1987.99,247.08],
+    [1990.80,295.46],[1990.99,330.22],[1995.99,615.93],[1998.99,1229.23],[2000.23,1527.46],
+    [2000.99,1320.28],[2002.77,776.76],[2002.99,879.82],[2007.77,1565.15],[2007.99,1468.36],
+    [2009.19,676.53],[2009.99,1115.10],[2013.99,1848.36],[2017.99,2673.61],[2018.99,2506.85],
+    [2020.22,2237.40],[2020.99,3756.07],[2021.99,4766.18],[2022.78,3577.03],[2022.99,3839.50],
+    [2024.99,5881.63],[2025.99,6550.00],[2026.67,7631.47]
+  ];
+
+  // U.S. investment-grade bonds - annual TOTAL return, %.
+  // 1958-1975: Ibbotson U.S. intermediate/long govt; 1976+: Bloomberg U.S. Aggregate. 2026 = YTD.
+  var bondRet={1958:-0.5,1959:-0.3,1960:11.6,1961:2.1,1962:5.6,1963:1.6,1964:4.0,1965:1.0,
+    1966:4.7,1967:1.0,1968:4.5,1969:-0.7,1970:16.9,1971:8.7,1972:5.2,1973:4.6,1974:5.7,1975:7.8,
+    1976:12.9,1977:1.4,1978:1.4,1979:1.9,1980:2.7,1981:6.3,1982:32.6,1983:8.4,1984:15.1,1985:22.1,
+    1986:15.3,1987:2.8,1988:7.9,1989:14.5,1990:9.0,1991:16.0,1992:7.4,1993:9.8,1994:-2.9,1995:18.5,
+    1996:3.6,1997:9.7,1998:8.7,1999:-0.8,2000:11.6,2001:8.4,2002:10.3,2003:4.1,2004:4.3,2005:2.4,
+    2006:4.3,2007:7.0,2008:5.2,2009:5.9,2010:6.5,2011:7.8,2012:4.2,2013:-2.0,2014:6.0,2015:0.5,
+    2016:2.6,2017:3.5,2018:0.0,2019:8.7,2020:7.5,2021:-1.5,2022:-13.0,2023:5.5,2024:1.3,2025:4.0,2026:3.0};
+
+  // Cash - 30-day U.S. Treasury bills, annual TOTAL return, % (Ibbotson). 2026 = YTD.
+  var cashRet={1958:1.5,1959:3.0,1960:2.7,1961:2.1,1962:2.7,1963:3.1,1964:3.5,1965:3.9,1966:4.8,
+    1967:4.2,1968:5.2,1969:6.6,1970:6.5,1971:4.4,1972:3.8,1973:6.9,1974:8.0,1975:5.8,1976:5.1,
+    1977:5.1,1978:7.2,1979:10.4,1980:11.2,1981:14.7,1982:10.5,1983:8.8,1984:9.8,1985:7.7,1986:6.2,
+    1987:5.5,1988:6.4,1989:8.4,1990:7.8,1991:5.6,1992:3.5,1993:2.9,1994:3.9,1995:5.6,1996:5.2,
+    1997:5.3,1998:4.9,1999:4.7,2000:5.9,2001:3.9,2002:1.7,2003:1.0,2004:1.2,2005:3.0,2006:4.8,
+    2007:4.7,2008:1.8,2009:0.2,2010:0.1,2011:0.1,2012:0.1,2013:0.1,2014:0.0,2015:0.0,2016:0.3,
+    2017:0.8,2018:1.9,2019:2.3,2020:0.5,2021:0.0,2022:1.5,2023:5.0,2024:5.2,2025:4.5,2026:3.2};
+
+  var START=1957.99, END=2026.67, BASE=10000;
+
+  // [decimal year, label, date, tone, icon]
+  var events=[
+    [1962.40,"Kennedy Slide","May 1962","shock","crash"],
+    [1966.30,"Credit-crunch bear market","1966","shock","percent"],
+    [1970.40,"1969&ndash;70 bear-market low","May 1970","shock","crash"],
+    [1973.80,"Oil embargo &amp; 1973&ndash;74 bear","Oct 1973","shock","oil"],
+    [1979.60,"Volcker tightening begins","Aug 1979","policy","percent"],
+    [1980.20,"Inflation peaks near 14%","Mar 1980","shock","tag"],
+    [1982.60,"Secular bull market begins","Aug 1982","milestone","rally"],
+    [1987.80,"Black Monday","Oct 19, 1987","shock","crash"],
+    [1990.58,"Gulf War &amp; recession","Aug 1990","shock","oil"],
+    [1994.15,"Fed shock &amp; bond rout","Feb 1994","shock","percent"],
+    [1998.71,"Asian crisis &amp; LTCM","1997&ndash;98","shock","globe"],
+    [2000.23,"Dot-com peak","Mar 2000","milestone","monitor"],
+    [2001.70,"9/11 attacks","Sep 2001","shock","tower"],
+    [2003.22,"Iraq war begins","Mar 2003","milestone","flag"],
+    [2008.71,"Lehman bankruptcy","Sep 15, 2008","shock","bank"],
+    [2009.19,"Market bottom","Mar 9, 2009","milestone","rally"],
+    [2011.60,"U.S. downgrade &amp; euro crisis","Aug 2011","shock","warning"],
+    [2013.38,"Taper tantrum","May 2013","shock","percent"],
+    [2016.48,"Brexit vote","Jun 2016","shock","ballot"],
+    [2018.96,"Q4 sell-off &amp; trade war","Dec 2018","shock","ship"],
+    [2020.19,"COVID-19 pandemic","Mar 2020","shock","virus"],
+    [2022.30,"Fed hikes; inflation peaks 9.1%","2022","policy","rateup"],
+    [2023.19,"SVB collapse","Mar 2023","shock","bank"],
+    [2025.25,"Reciprocal tariffs","Apr 2025","policy","stamp"]
+  ];
+
+  var ICONS={
+    crash:'<polyline points="3,6 10,13 14,9 21,16"/><polyline points="21,10 21,16 15,16"/>',
+    rally:'<polyline points="3,18 10,11 14,15 21,8"/><polyline points="21,14 21,8 15,8"/>',
+    percent:'<circle cx="8" cy="8" r="2.4"/><circle cx="16" cy="16" r="2.4"/><line x1="18" y1="6" x2="6" y2="18"/>',
+    globe:'<circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><line x1="3" y1="12" x2="21" y2="12"/>',
+    warning:'<path d="M12 3 L22 20 H2 Z"/><line x1="12" y1="9" x2="12" y2="14"/><circle cx="12" cy="17" r="0.6"/>',
+    monitor:'<rect x="3" y="4" width="18" height="12" rx="1"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="16" x2="12" y2="20"/>',
+    tower:'<rect x="7" y="3" width="10" height="18"/><line x1="10" y1="7" x2="10" y2="7.4"/><line x1="14" y1="7" x2="14" y2="7.4"/><line x1="10" y1="11" x2="10" y2="11.4"/><line x1="14" y1="11" x2="14" y2="11.4"/><line x1="10" y1="15" x2="10" y2="15.4"/><line x1="14" y1="15" x2="14" y2="15.4"/>',
+    doc:'<path d="M6 3 H15 L19 7 V21 H6 Z"/><line x1="9" y1="11" x2="16" y2="11"/><line x1="9" y1="15" x2="16" y2="15"/>',
+    flag:'<line x1="6" y1="3" x2="6" y2="21"/><path d="M6 4 H18 L15 8 L18 12 H6 Z"/>',
+    house:'<path d="M4 11 L12 4 L20 11"/><path d="M6 11 V20 H18 V11"/>',
+    bank:'<path d="M3 9 L12 4 L21 9"/><line x1="4" y1="20" x2="20" y2="20"/><line x1="6" y1="9" x2="6" y2="18"/><line x1="10" y1="9" x2="10" y2="18"/><line x1="14" y1="9" x2="14" y2="18"/><line x1="18" y1="9" x2="18" y2="18"/>',
+    bolt:'<polygon points="13,2 4,14 11,14 10,22 20,10 13,10"/>',
+    star:'<polygon points="12,3 14.5,9 21,9.5 16,14 17.5,20.5 12,17 6.5,20.5 8,14 3,9.5 9.5,9"/>',
+    euro:'<circle cx="12" cy="12" r="9"/><path d="M16 8 A5 5 0 1 0 16 16"/><line x1="6" y1="10.5" x2="13" y2="10.5"/><line x1="6" y1="13.5" x2="13" y2="13.5"/>',
+    ballot:'<rect x="4" y="4" width="16" height="16" rx="1"/><polyline points="8,12 11,15 16,9"/>',
+    ship:'<path d="M4 14 H20 L18 20 H6 Z"/><line x1="12" y1="6" x2="12" y2="14"/><line x1="12" y1="6" x2="18" y2="10"/>',
+    virus:'<circle cx="12" cy="12" r="6"/><line x1="12" y1="6" x2="12" y2="2"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="6" y1="12" x2="2" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="7.8" y1="7.8" x2="5" y2="5"/><line x1="16.2" y1="16.2" x2="19" y2="19"/><line x1="16.2" y1="7.8" x2="19" y2="5"/><line x1="7.8" y1="16.2" x2="5" y2="19"/>',
+    rateup:'<rect x="4" y="15" width="4" height="5"/><rect x="10" y="11" width="4" height="9"/><rect x="16" y="6" width="4" height="14"/><polyline points="16,4 20,4 20,8"/>',
+    tag:'<path d="M4 4 H12 L20 12 L12 20 L4 12 Z"/><circle cx="8" cy="8" r="1.6"/>',
+    yen:'<circle cx="12" cy="12" r="9"/><polyline points="8,7 12,12 16,7"/><line x1="12" y1="12" x2="12" y2="17"/><line x1="8.5" y1="13" x2="15.5" y2="13"/><line x1="8.5" y1="15.5" x2="15.5" y2="15.5"/>',
+    stamp:'<circle cx="12" cy="10" r="6"/><polygon points="12,6 13,9 16,9 13.5,11 14.5,14 12,12 9.5,14 10.5,11 8,9 11,9"/><line x1="5" y1="20" x2="19" y2="20"/>',
+    oil:'<path d="M12 3 C7 10 5 13 5 16 a7 7 0 0 0 14 0 C19 13 17 10 12 3 Z"/>'
+  };
+  function iconSVG(name,color,cx,cy){
+    var s=20/24;
+    return '<g transform="translate('+(cx-10)+','+(cy-10)+') scale('+s.toFixed(4)+')" fill="none" stroke="'+color
+      +'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+(ICONS[name]||ICONS.warning)+'</g>';
+  }
+
+  // ============ SERIES ==============================================
+  function rnd(seed){ var x=Math.sin(seed*127.1+311.7)*43758.5453; return x-Math.floor(x); }
+  function interpAnchors(a,t){
+    if(t<=a[0][0]) return a[0][1];
+    for(var i=1;i<a.length;i++){
+      if(t<=a[i][0]){
+        var f=(t-a[i-1][0])/(a[i][0]-a[i-1][0]);
+        return Math.exp(Math.log(a[i-1][1])+(Math.log(a[i][1])-Math.log(a[i-1][1]))*f);
+      }
+    }
+    return a[a.length-1][1];
+  }
+  function retFrac(tbl,t0,t1){
+    var v=1,y=Math.floor(t0);
+    while(y<=Math.floor(t1-1e-9)){
+      var f=Math.min(t1,y+1)-Math.max(t0,y);
+      v*=Math.pow(1+(tbl[y]||0)/100,f); y++;
+    }
+    return v;
+  }
+
+  var months=[START];
+  for(var y=1958;y<=2026;y++){ var mm=(y===2026)?8:11; for(var m=0;m<=mm;m++) months.push(y+m/12); }
+
+  var sp0=spAnchors[0][1];
+  var eqSeries=[],bondSeries=[],cashSeries=[];
+  var bondVal=BASE,cashVal=BASE,prev=START;
+  months.forEach(function(t,i){
+    var lvl=interpAnchors(spAnchors,t);
+    var noise=i===0?1:1+(rnd(i)-0.5)*0.010;
+    eqSeries.push([t,BASE*(lvl/sp0)*noise]);
+    if(i>0){ bondVal*=retFrac(bondRet,prev,t); cashVal*=retFrac(cashRet,prev,t); }
+    bondSeries.push([t,bondVal]); cashSeries.push([t,cashVal]); prev=t;
+  });
+  eqSeries[eqSeries.length-1][1]=BASE*(spAnchors[spAnchors.length-1][1]/sp0);
+
+  var eqEnd=eqSeries[eqSeries.length-1][1], bondEnd=bondSeries[bondSeries.length-1][1], cashEnd=cashSeries[cashSeries.length-1][1];
+  function cagr(v){ return (Math.pow(v/BASE,1/(END-START))-1)*100; }
+  function usd(v){
+    if(v>=1e6) return "$"+(v/1e6).toFixed(2)+"M";
+    if(v>=1e3) return "$"+Math.round(v).toLocaleString("en-US");
+    return "$"+v.toFixed(0);
+  }
+  function usdAxis(v){
+    if(v>=1e6) return "$"+(v/1e6)+"M";
+    return "$"+(v/1e3)+"k";
+  }
+
+  // ============ STAT TILES =========================================
+  var stats=[
+    {c:"eq",  k:"U.S. stocks (S&P 500)",      v:usd(eqEnd),  n:cagr(eqEnd).toFixed(1)+"% annualized &middot; price return"},
+    {c:"bond",k:"U.S. bonds (IG / Agg)",      v:usd(bondEnd),n:cagr(bondEnd).toFixed(1)+"% annualized &middot; total return"},
+    {c:"cash",k:"Cash (T-bills / savings)",   v:usd(cashEnd),n:cagr(cashEnd).toFixed(1)+"% annualized &middot; total return"}
+  ];
+  document.getElementById("stats").innerHTML=stats.map(function(s){
+    return '<div class="stat '+s.c+'"><div class="k">'+s.k+'</div><div class="v">'+s.v+'</div><div class="n">'+s.n+'</div></div>';
+  }).join("");
+
+  // ============ GEOMETRY (log scale) ==============================
+  var W=1500, mL=78, mR=176, mT=52, mB=54;
+  var H=940, pL=mL, pR=W-mR, pT=mT, pB=H-mB;
+  var yMin=8000, yMax=10000000;
+  var lgMin=Math.log(yMin), lgMax=Math.log(yMax);
+
+  function X(t){ return pL+(t-START)/(END-START)*(pR-pL); }
+  function Y(v){ return pB-(Math.log(v)-lgMin)/(lgMax-lgMin)*(pB-pT); }
+  function pathOf(s){ return s.map(function(d,i){ return (i?"L":"M")+X(d[0]).toFixed(2)+" "+Y(d[1]).toFixed(2); }).join(" "); }
+  function valueAt(s,t){
+    for(var i=1;i<s.length;i++){ if(t<=s[i][0]){ var f=(t-s[i-1][0])/(s[i][0]-s[i-1][0]); return s[i-1][1]+(s[i][1]-s[i-1][1])*f; } }
+    return s[s.length-1][1];
+  }
+
+  var S=[];
+  S.push('<defs><linearGradient id="eqfill" x1="0" y1="0" x2="0" y2="1">'
+    +'<stop offset="0" stop-color="var(--eq-fill)" stop-opacity="0.16"/>'
+    +'<stop offset="1" stop-color="var(--eq-fill)" stop-opacity="0.02"/></linearGradient></defs>');
+
+  // horizontal gridlines at decade multiples
+  [10000,30000,100000,300000,1000000,3000000,10000000].forEach(function(g){
+    var yy=Y(g);
+    S.push('<line class="gridline" x1="'+pL+'" y1="'+yy.toFixed(1)+'" x2="'+pR+'" y2="'+yy.toFixed(1)+'"/>');
+    S.push('<text class="ax" x="'+(pL-12)+'" y="'+(yy+4).toFixed(1)+'" text-anchor="end">'+usdAxis(g)+'</text>');
+  });
+  // x ticks every 10 years + endpoints
+  var years=[1960,1970,1980,1990,2000,2010,2020];
+  years.forEach(function(yr){
+    var xx=X(yr);
+    S.push('<line class="gridline" x1="'+xx.toFixed(1)+'" y1="'+pT+'" x2="'+xx.toFixed(1)+'" y2="'+pB+'"/>');
+    S.push('<text class="ax-strong" x="'+xx.toFixed(1)+'" y="'+(pB+26)+'" text-anchor="middle">'+yr+'</text>');
+  });
+  S.push('<text class="ax-strong" x="'+X(START).toFixed(1)+'" y="'+(pB+26)+'" text-anchor="middle">1957</text>');
+  S.push('<text class="ax-strong" x="'+X(END).toFixed(1)+'" y="'+(pB+26)+'" text-anchor="middle">2026</text>');
+  S.push('<line class="baseline" x1="'+pL+'" y1="'+pB+'" x2="'+pR+'" y2="'+pB+'"/>');
+
+  // area under equity
+  S.push('<path d="'+pathOf(eqSeries)+' L'+X(END).toFixed(2)+' '+pB+' L'+X(START).toFixed(2)+' '+pB+' Z" fill="url(#eqfill)"/>');
+  // series
+  S.push('<path d="'+pathOf(cashSeries)+'" fill="none" stroke="var(--cash)" stroke-width="2" stroke-linejoin="round"/>');
+  S.push('<path d="'+pathOf(bondSeries)+'" fill="none" stroke="var(--bond)" stroke-width="2" stroke-linejoin="round"/>');
+  S.push('<path d="'+pathOf(eqSeries)+'" fill="none" stroke="var(--eq)" stroke-width="2.4" stroke-linejoin="round"/>');
+
+  // start + end markers
+  S.push('<circle cx="'+X(START).toFixed(1)+'" cy="'+Y(BASE).toFixed(1)+'" r="4" fill="var(--ink)"/>');
+  S.push('<text class="series-end" x="'+(X(START)+9)+'" y="'+(Y(BASE)+22)+'" fill="var(--ink-soft)">$10,000</text>');
+  [{v:eqEnd,c:"var(--eq)",t:usd(eqEnd)},{v:bondEnd,c:"var(--bond)",t:usd(bondEnd)},{v:cashEnd,c:"var(--cash)",t:usd(cashEnd)}].forEach(function(e){
+    var ey=Y(e.v);
+    S.push('<circle cx="'+X(END).toFixed(1)+'" cy="'+ey.toFixed(1)+'" r="4.5" fill="'+e.c+'"/>');
+    S.push('<text class="series-end" x="'+(X(END)+12)+'" y="'+(ey+4).toFixed(1)+'" fill="'+e.c+'">'+e.t+'</text>');
+  });
+
+  // legend
+  var lg=[["U.S. stocks &mdash; S&amp;P 500 price","var(--eq)"],["U.S. bonds &mdash; IG / Bloomberg U.S. Agg","var(--bond)"],["Cash &mdash; 30-day T-bills","var(--cash)"]];
+  var lx=pL, ly=26;
+  lg.forEach(function(it){
+    S.push('<line x1="'+lx+'" y1="'+ly+'" x2="'+(lx+22)+'" y2="'+ly+'" stroke="'+it[1]+'" stroke-width="3"/>');
+    S.push('<text class="ax-strong" x="'+(lx+30)+'" y="'+(ly+4)+'">'+it[0]+'</text>');
+    lx+=30+it[0].replace(/&[a-z]+;/g,'x').length*6.7+34;
+  });
+
+  // ============ EVENT ICONS placed near the curve =================
+  var toneColor={shock:"var(--shock)",policy:"var(--policy)",milestone:"var(--milestone)"};
+  var placed=[];
+  function overlaps(a,b){ return !(a.x1<b.x0||a.x0>b.x1||a.y1<b.y0||a.y0>b.y1); }
+
+  var evLayer=[];   // collect so halos/leaders sit under icons+text
+  events.slice().sort(function(a,b){return a[0]-b[0];}).forEach(function(ev){
+    var t=ev[0], label=ev[1], date=ev[2], col=toneColor[ev[3]], name=ev[4];
+    var ex=X(t), anchorY=Y(valueAt(eqSeries,t));
+    var textW=Math.max(label.replace(/&[a-z]+;/g,'xx').length, date.length)*6.05;
+
+    // label sits to the right of the icon, except near the right edge
+    var leftSide = ex+26+textW > pR-8;
+    var tx = leftSide ? ex-15-textW : ex+15;          // text x
+    var box0 = Math.min(ex-13, tx-5), box1 = Math.max(ex+13, tx+textW+5);
+
+    // always float above the point and stack upward into the headroom
+    var iy = anchorY - 44;
+    for(var k=0;k<80;k++){
+      var b={x0:box0-3,x1:box1+3,y0:iy-13,y1:iy+15};
+      if(!placed.some(function(p){return overlaps(b,p);})) break;
+      iy -= 26;
+    }
+    iy = Math.max(iy, pT+14);
+    placed.push({x0:box0-3,x1:box1+3,y0:iy-13,y1:iy+15});
+
+    // leader (under everything)
+    evLayer.push('<line x1="'+ex.toFixed(1)+'" y1="'+(iy+12).toFixed(1)+'" x2="'+ex.toFixed(1)+'" y2="'+(anchorY-4).toFixed(1)+'" stroke="'+col+'" stroke-width="1" stroke-opacity="0.30"/>');
+    evLayer.push('<circle cx="'+ex.toFixed(1)+'" cy="'+anchorY.toFixed(1)+'" r="3.3" fill="'+col+'" stroke="var(--panel)" stroke-width="1.4"/>');
+    // halo behind the whole chip
+    evLayer.push('<rect x="'+box0.toFixed(1)+'" y="'+(iy-14).toFixed(1)+'" width="'+(box1-box0).toFixed(1)+'" height="29" rx="4" fill="var(--halo)" fill-opacity="0.95"/>');
+    // text
+    evLayer.push('<text class="evt-label" x="'+tx.toFixed(1)+'" y="'+(iy-1).toFixed(1)+'" text-anchor="'+(leftSide?'start':'start')+'">'+label+'</text>');
+    evLayer.push('<text class="evt-date" x="'+tx.toFixed(1)+'" y="'+(iy+12).toFixed(1)+'">'+date+'</text>');
+    // icon medallion centred on the event x
+    evLayer.push('<circle cx="'+ex.toFixed(1)+'" cy="'+iy.toFixed(1)+'" r="11" fill="var(--halo)"/>');
+    evLayer.push('<circle cx="'+ex.toFixed(1)+'" cy="'+iy.toFixed(1)+'" r="11" fill="'+col+'" fill-opacity="0.14" stroke="'+col+'" stroke-width="1.3"/>');
+    evLayer.push(iconSVG(name,col,ex,iy));
+  });
+  S.push(evLayer.join(""));
+
+  document.getElementById("chart").innerHTML=S.join("");
+
+  // ============ FOOTNOTE ==========================================
+  document.getElementById("foot").innerHTML=
+    '<strong>How to read this.</strong> Illustrative growth of a single $10,000 investment made when the S&amp;P 500 launched (year-end 1957) and held through Sep 1, 2026 &mdash; 68.7 years, drawn on a <strong>ratio (log) scale</strong> so all three assets stay readable. '
+    +'Stocks are the S&amp;P 500 <strong>price index</strong> (39.99 &rarr; 7,631.47), price return only &mdash; dividends, fees, taxes and inflation excluded. '
+    +'Bonds and cash are shown as <strong>total return</strong>, compounded year by year from published annual returns: bonds splice Ibbotson U.S. government bonds (1958&ndash;1975) into the Bloomberg U.S. Aggregate (1976&ndash;present); cash is 30-day U.S. Treasury bills. Because stocks exclude dividends while bonds and cash include income, the equity line understates stocks&rsquo; true lead. '
+    +'Event markers sit on the equity path. Past performance is not indicative of future results. '
+    +'<br>Sources: S&amp;P Dow Jones Indices; Bloomberg Index Services; Ibbotson / Morningstar SBBI; U.S. Treasury; Federal Reserve (FRED). Annual-return figures are approximate. Data verified Sep 2026.';
+})();
+</script>
